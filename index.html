@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Kaleido3D : A Cross Platform 3D Renderer (DX12, Metal, Vulkan) ... Under  development">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Kaleido3D</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/TsinStudio/kaleido3d">View on GitHub</a>
+
+          <h1 id="project_title">Kaleido3D</h1>
+          <h2 id="project_tagline">A Cross Platform 3D Renderer (DX12, Metal, Vulkan) ... Under  development</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/TsinStudio/kaleido3d/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/TsinStudio/kaleido3d/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h1>
+
+<blockquote>
+<p><strong>Main Feature</strong></p>
+
+<ul>
+<li>
+<code>Next Generation Graphics Library</code> </li>
+<li>Modern C++ Code (<strong><code>C++ 11</code></strong>)</li>
+<li>Modern Graphics Renderer (<code>Metal</code>, <code>Vulkan</code>, <code>DirectX 12</code>)</li>
+<li>
+<strong><code>Maya</code></strong> Digital Content Creation Tools</li>
+<li>
+<strong>Task-Oriented</strong>, support <code>multi-thread</code> rendering </li>
+</ul>
+</blockquote>
+
+<p><img src="Document/task_oriented_renderer.png" alt="Renderer Arch"></p>
+
+<hr>
+
+<h1>
+<a id="build-required" class="anchor" href="#build-required" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build Required</h1>
+
+<blockquote>
+<p><strong>Compiler Required:</strong></p>
+
+<ul>
+<li><a href="http://www.cmake.org">CMake 2.8+</a></li>
+<li>Visual Studio <strong>2013</strong> Update 3 +</li>
+<li>Clang 3.4 +</li>
+<li>G++ 4.8 +</li>
+<li><a href="http://pan.baidu.com/s/1bnk8egJ">ThirdParty</a></li>
+</ul>
+
+<p><strong>Platform Required:</strong></p>
+
+<ul>
+<li>Win10 10130 or OS X EI Capitan</li>
+</ul>
+</blockquote>
+
+<hr>
+
+<h1>
+<a id="build-documents" class="anchor" href="#build-documents" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build Documents:</h1>
+
+<pre><code>cd Document and run makedoc.bat
+</code></pre>
+
+<hr>
+
+<h1>
+<a id="build-instructions" class="anchor" href="#build-instructions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build Instructions:</h1>
+
+<blockquote>
+<ul>
+<li>
+<strong>Windows</strong>: make.bat</li>
+<li>
+<strong>Mac OS X</strong>: cd Project &amp;&amp; ./premake5 xcode4</li>
+</ul>
+</blockquote>
+
+<h1>
+<a id="directories" class="anchor" href="#directories" aria-hidden="true"><span class="octicon octicon-link"></span></a>Directories:</h1>
+
+<ul>
+<li>
+<strong>Source:</strong> 
+
+<ul>
+<li>
+<strong><em>Core</em></strong><br>
+
+<ul>
+<li>
+<em>A Cross Platform Implementation Of <code>IO</code>, <code>SIMD</code> Math, Image And Thread</em><br>
+</li>
+</ul>
+</li>
+<li>
+<strong><em>Renderer</em></strong><br>
+
+<ul>
+<li>Implementation Include <strong>D3D12</strong> And <code>iOS Metal</code>
+</li>
+</ul>
+</li>
+<li><strong>Engine</strong></li>
+<li><strong>Launcher</strong></li>
+<li>
+<strong>Physics</strong><br>
+</li>
+</ul>
+</li>
+<li>
+<strong>ThirdParty</strong>
+
+<ul>
+<li> GLEW</li>
+<li> <a href="https://developer.nvidia.com/gameworksdownload">PhysX 3.3.1</a>
+</li>
+<li> SDL2.0.3</li>
+<li> <a href="https://github.com/miloyip/rapidjson">rapidJson</a>
+</li>
+<li> <a href="https://github.com/google/protobuf">ProtoBuf</a>
+</li>
+<li> <a href="https://www.threadingbuildingblocks.org/">Intel Thread Building Blocks</a>
+</li>
+</ul>
+</li>
+<li>
+<strong>Include</strong>
+
+<ul>
+<li> Interface</li>
+<li> SIMD Math Library</li>
+<li>Template Library</li>
+</ul>
+</li>
+<li>
+<strong>Shader:</strong><br>
+
+<ul>
+<li><em>Effects Implemented With HLSL And GLSL</em></li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<h1>
+<a id="contact" class="anchor" href="#contact" aria-hidden="true"><span class="octicon octicon-link"></span></a>Contact</h1>
+
+<blockquote>
+<p>If you have any suggestion, please contact me via <a href="http://weibo.com/tsinstudio"><strong>sina weibo</strong></a> or <a href="mailto:dsotsen@gmail.com"><strong>email</strong></a>. </p>
+</blockquote>
+
+<h1>
+<a id="discuss" class="anchor" href="#discuss" aria-hidden="true"><span class="octicon octicon-link"></span></a>Discuss</h1>
+
+<p><a href="https://gitter.im/TsinStudio/kaleido3d?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge&amp;utm_content=badge"><img src="https://badges.gitter.im/Join%20Chat.svg" alt="Join the chat at https://gitter.im/TsinStudio/kaleido3d"></a></p>
+
+<p>Please join the <a href="https://gitter.im/TsinStudio/kaleido3d">gitter chat</a> to discuss on this project.
+Framework development discussions and thorough bug reports are collected on <a href="https://github.com/TsinStudio/kaleido3d/issues">Issues</a>.</p>
+
+<h1>
+<a id="reference" class="anchor" href="#reference" aria-hidden="true"><span class="octicon octicon-link"></span></a>Reference</h1>
+
+<ol>
+<li><a href="https://github.com/Microsoft/DirectX-Graphics-Samples/tree/feature_miniengine">Microsoft's MiniEngine Demo</a></li>
+<li><a href="https://github.com/gongminmin/KlayGE">GongMinMin's KlayGE</a></li>
+</ol>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Kaleido3D maintained by <a href="https://github.com/TsinStudio">TsinStudio</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
