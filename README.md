@@ -1,12 +1,13 @@
 Introduction 
 =========
 
+**kaleido3d** is a cross-platform graphics library.
 
 > **Main Feature**
 > 
 >* `Next Generation Graphics Library` 
->* Modern C++ Code (**`C++ 11`**)
->* Modern Graphics Renderer (`Metal`, `Vulkan`, `Direct3D 12`)
+>* Modern C++ Code
+>* Modern Graphics Renderer (`Metal`, `Vulkan`, `Direct3D 12`, `OpenGL|ES`)
 >* **`Maya`** Digital Content Creation Tools
 >* **Task-Oriented**, support `multi-thread` rendering 
 >* Support Windows, Android, iOS, MacOS & Linux.
@@ -22,7 +23,7 @@ Prerequisites
 |CI Status|[![Build status](https://ci.appveyor.com/api/projects/status/bkqv6wbtyr4538hf?svg=true)](https://ci.appveyor.com/project/TsinStudio/kaleido3d)|[![Circle CI](https://circleci.com/gh/TsinStudio/kaleido3d.svg?style=svg)](https://circleci.com/gh/TsinStudio/kaleido3d) |[![Build Status](https://travis-ci.org/TsinStudio/kaleido3d.svg?branch=master)](https://travis-ci.org/TsinStudio/kaleido3d)|
 |IDE| VS2015+ | Android Studio 2.2+| Xcode 8.1+ |
 |OS Requirements| Win10 | Android 7.+| MacOS Sierra |
-|Dependency| [ThirdParty][8]/CMake 3.4+ | [ThirdParty][8]/NDK r12+/Gradle | [ThirdParty][8]/CMake 3.4+ |
+|Dependency| [ThirdParty](https://github.com/Tomicyo/kaleido3d_dep)/CMake 3.4+ | [ThirdParty](https://github.com/Tomicyo/kaleido3d_dep)/NDK r12+/Gradle | [ThirdParty](https://github.com/Tomicyo/kaleido3d_dep)/CMake 3.4+ |
 
 ----------
 
@@ -41,14 +42,14 @@ Current Status
 - RHI(Render Hardware Interface)
 
 	* [x] Vulkan backend **ready**.
-	* [ ] DirectX 12 backend **WIP**
-	* [ ] Metal backend **WIP**
+	* [x] DirectX 12 backend **WIP**
+	* [x] Metal backend **WIP**
 
 - Core.Platform
 
 	* [x] Windows implementation ready.
 	* [x] Android RendererView.
-	* [ ] iOS/MacOS not initialized.
+	* [x] iOS/MacOS **WIP**.
 
 - Tools
 	
@@ -57,15 +58,18 @@ Current Status
 
 - Planned Samples
 	
-	* [x] Triangle(vk)
-	* [x] Textured Cube 
-	* [ ] Compute Shader
-	* [ ] Shadow Mapping
-	* [ ] Physically Based Shading
-	* [ ] Deferred Shading
-	* [ ] Multi-thread Rendering
+	* [x] Triangle
+	* [x] Textured Cube
+	* [x] Compute Shader (WIP)
+	* [ ] Physically Based Shading (Material Model)
+	* [ ] Skinned Skeleton Animation
+	* [ ] Shadow Mapping (Render To Texture, Z-Pass)
+	* [ ] Deferred Shading (Multi-RenderTarget)
+	* [ ] Tile-Based Cluster Lighting (Compute Shading)
+	* [ ] Multi-Thread Rendering
 	* [ ] Multi-GPU/CrossAdapter Rendering
-	* [ ] Cross Shader Language Compiler
+	* [x] Cross Shader Language Compiler
+	* [ ] Hand-writing Recognition CNN Sample (GPGPU)
 
 ---
 
@@ -90,6 +94,7 @@ Documents
 	*  [rapidJson][3]
 	*  [glslang][7]
 	*  [spir2cross][10]
+	*  [freetype][11]
 	*  DXSDK
 
 
@@ -144,14 +149,16 @@ Samples
 
 Contact
 =========
-> If you have any suggestion, please contact me via [**email**](mailto:dsotsen@gmail.com). 
+
+If you have any suggestion, please contact me via [**email**][12] . 
+
 
 Discuss [![Join the chat at https://gitter.im/TsinStudio/kaleido3d](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/TsinStudio/kaleido3d?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 =========
 
 
 
-Please join the [gitter chat](https://gitter.im/TsinStudio/kaleido3d) to discuss on this project.
+Please join the [gitter chat](https://gitter.im/TsinStudio/kaleido3d) or [QQ Group][13] to discuss on this project.
 Framework development discussions and thorough bug reports are collected on [Issues](https://github.com/TsinStudio/kaleido3d/issues).
 
 
@@ -166,3 +173,6 @@ Framework development discussions and thorough bug reports are collected on [Iss
 [8]: https://github.com/Tomicyo/kaleido3d_dep
 [9]: https://vulkan.lunarg.com/
 [10]: https://github.com/KhronosGroup/SPIRV-Cross
+[11]: https://www.freetype.org
+[12]: mailto:dsotsen@gmail.com
+[13]: https://jq.qq.com/?_wv=1027&k=45tL869

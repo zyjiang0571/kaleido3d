@@ -31,7 +31,7 @@ void VkLog(k3d::ELogLevel const& Lv, const char * tag, const char * fmt, ...)
 		vsprintf(logContent, fmt, va);
 		va_end(va);
 
-		k3d::ILogModule* logModule = (k3d::ILogModule*)k3d::GlobalModuleManager.FindModule("KawaLog");
+		auto logModule = k3d::StaticPointerCast<k3d::ILogModule>(k3d::GlobalModuleManager.FindModule("KawaLog"));
 		if (logModule)
 		{
 			k3d::ILogger* logger = logModule->GetLogger(k3d::ELoggerType::EWebsocket);

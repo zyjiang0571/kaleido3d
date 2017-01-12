@@ -1,7 +1,7 @@
 #ifndef __IVkRHI_h__
 #define __IVkRHI_h__
 #include <Core/Module.h>
-#include <RHI/IRHI.h>
+#include <Interface/IRHI.h>
 
 namespace k3d
 {
@@ -20,5 +20,9 @@ namespace k3d
 
 	};
 }
+
+#if	BUILD_STATIC_PLUGIN
+K3D_STATIC_MODULE_DECLARE(RHI_Vulkan);
+#endif
 
 #endif

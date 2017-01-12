@@ -9,8 +9,7 @@ extern K3D_API VkDeviceSize				CalcAlignedOffset(VkDeviceSize offset, VkDeviceSi
 extern K3D_API VkImageAspectFlags		DetermineAspectMask(VkFormat format);
 extern K3D_API std::string				ErrorString(VkResult errorCode);
 extern K3D_API VkBool32					GetSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat * depthFormat);
-extern K3D_API void						SetupDebugging(VkInstance instance, VkDebugReportFlagsEXT flags, VkDebugReportCallbackEXT callBack);
-extern K3D_API void						FreeDebugCallback(VkInstance instance);
+
 extern K3D_API rhi::PipelineLayoutKey	HashPipelineLayoutDesc(rhi::PipelineLayoutDesc const& desc);
 
 class CommandAllocator;
@@ -27,9 +26,11 @@ public:
 		~CommandAllocator();
 
 	VkCommandPool				GetCommandPool() const { return m_Pool; }
+	
+	void						Destroy();
+
 protected:
 	void						Initialize();
-	void						Destroy();
 
 private:
 	CommandAllocator(uint32 queueFamilyIndex, bool transient, Device::Ptr device);
@@ -48,7 +49,11 @@ public:
 		K3D_VK_VERIFY(vkCreateSemaphore(GetRawDevice(), &info, nullptr, &m_Semaphore));
 		VKLOG(Info, "Semaphore Created. (0x%0x).", m_Semaphore);
 	}
-	~Semaphore() { vkDestroySemaphore(GetRawDevice(), m_Semaphore, nullptr); }
+	~Semaphore() 
+	{
+		VKLOG(Info, "Semaphore Destroyed. (0x%0x).", m_Semaphore);
+		vkDestroySemaphore(GetRawDevice(), m_Semaphore, nullptr); 
+	}
 
 	VkSemaphore	GetNativeHandle() const { return m_Semaphore; }
 

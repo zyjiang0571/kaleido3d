@@ -1,6 +1,2 @@
-if [ ! -d Build ]; then
-	mkdir Build
-fi
-cd Build
-cmake -G"Xcode" ../Source -DCMAKE_BUILD_TYPE=Debug
-xcodebuild
+cmake -HSource -BBuild/Mac/Debug -GXcode -DCMAKE_BUILD_TYPE=Debug
+cmake --build Build/Mac/Debug --config Debug

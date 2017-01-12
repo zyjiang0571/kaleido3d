@@ -19,6 +19,16 @@ namespace k3d
 {
     EResult mtlCompile(string const& source, String & metalIR);
 
+    MetalCompiler::MetalCompiler()
+    {
+        sInitializeGlSlang();
+    }
+    
+    MetalCompiler::~MetalCompiler()
+    {
+        sFinializeGlSlang();
+    }
+    
     EResult MetalCompiler::Compile(String const& src, rhi::ShaderDesc const& inOp, rhi::ShaderBundle & bundle)
     {
         if(inOp.Format == rhi::EShFmt_Text)
@@ -87,10 +97,46 @@ namespace k3d
                     }
                     std::vector<unsigned int> spirv;
                     glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
-                    
+
+                    if(program.buildReflection())
+                    {
+                        ExtractAttributeData(program, bundle.Attributes);
+                        ExtractUniformData(inOp.Stage, program, bundle.BindingTable);
+                    }
+                    else
+                    {
+                        return rhi::shc::E_Failed;
+                    }
+                    uint32 bufferLoc = 0;
+                    std::vector<spirv_cross::MSLVertexAttr> vertAttrs;
+                    for(auto & attr : bundle.Attributes)
+                    {
+                        spirv_cross::MSLVertexAttr vAttrib;
+                        vAttrib.location = attr.VarLocation;
+                        vAttrib.msl_buffer = attr.VarBindingPoint;
+                        vertAttrs.push_back(vAttrib);
+                        bufferLoc = attr.VarBindingPoint;
+                    }
+                    std::vector<spirv_cross::MSLResourceBinding> resBindings;
+                    for(auto & binding : bundle.BindingTable.Bindings)
+                    {
+                        if(binding.VarType == EBindType::EBlock)
+                        {
+                            bufferLoc ++;
+                            spirv_cross::MSLResourceBinding resBind;
+                            resBind.stage = rhiShaderStageToSpvModel(binding.VarStage);
+                            resBind.desc_set = 0;
+                            resBind.binding = binding.VarNumber;
+                            resBind.msl_buffer = bufferLoc;
+                            resBindings.push_back(resBind);
+                        }
+                    }
                     auto metalc = make_unique<spirv_cross::CompilerMSL>(spirv);
-                    auto result = metalc->compile();
-                    
+                    spirv_cross::MSLConfiguration config;
+                    config.flip_vert_y = false;
+                    config.flip_frag_y = false;
+                    config.entry_point_name = inOp.EntryFunction.CStr();
+                    auto result = metalc->compile(config, &vertAttrs, &resBindings);
                     if(m_IsMac)
                     {
                         auto ret = mtlCompile(result, bundle.RawData);
@@ -162,7 +208,7 @@ namespace k3d
         bcFile.Open(tmpLib.c_str(), IORead);
         metalIR = { bcFile.FileData(), (size_t)bcFile.GetSize() };
         bcFile.Close();
-        Os::Remove(intermediate.c_str());
+        //Os::Remove(intermediate.c_str());
 #endif
         return E_Ok;
     }

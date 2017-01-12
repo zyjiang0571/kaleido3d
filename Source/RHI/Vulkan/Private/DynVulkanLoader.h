@@ -3,16 +3,30 @@
 #ifndef __DynVulkanLoader_h__
 #define __DynVulkanLoader_h__
 
-#define VK_NO_PROTOTYPES
+//#define VK_NO_PROTOTYPES
 #if K3DPLATFORM_OS_WIN
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #elif K3DPLATFORM_OS_ANDROID
 #define VK_USE_PLATFORM_ANDROID_KHR 1
 #endif
 #include <vulkan/vulkan.h>
+#include <stdlib.h>
+#include <KTL/SharedPtr.hpp>
 
-#define _VK_GET_FUNCTION_FROM_LIB_(funcName) vk##funcName = (PFN_vk##funcName)dynlib::GetVulkanLib().ResolveEntry("vk" K3D_STRINGIFY(funcName));
+#ifdef VK_NO_PROTOTYPES
+
 #define _VK_GET_INSTANCE_POINTER_(instance, funcName) vk##funcName = (PFN_vk##funcName)vkGetInstanceProcAddr(instance, "vk" K3D_STRINGIFY(funcName));
+
+// Macro to get a procedure address based on a vulkan instance
+#define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                        \
+{                                                                       \
+    fp##entrypoint = (PFN_vk##entrypoint) gpGetInstanceProcAddr(inst, "vk"#entrypoint); \
+    if (fp##entrypoint == NULL)                                         \
+	{																    \
+        exit(1);                                                        \
+    }                                                                   \
+}
+
 #define _VK_GET_DEVICE_POINTER_(device, funcName) vk##funcName = (PFN_vk##funcName)vkGetDeviceProcAddr(device, "vk" K3D_STRINGIFY(funcName));
 #define _DEF_VK_FUNC_(funcName) PFN_vk##funcName vk##funcName = NULL
 #define _PREDEF_VK_FUNC_(funcName) extern K3D_API PFN_vk##funcName vk##funcName
@@ -174,21 +188,26 @@ _PREDEF_VK_FUNC_(CmdEndRenderPass);
 _PREDEF_VK_FUNC_(CmdExecuteCommands);
 _PREDEF_VK_FUNC_(AcquireNextImageKHR);
 
+#endif
+
 namespace dynlib
 {
+	typedef void(*CallBack)(void* pUserData);
 	class Lib
 	{
 	public:
-		Lib(const char* libName);
+		Lib(const char* libName = nullptr);
 		~Lib();
 
-		void* ResolveEntry(const char* functionName);
+		void*		ResolveEntry(const char* functionName);
+		void		SetDestroyCallBack(void *userData, CallBack callback);
 
 	private:
-		void*m_LibHandle;
+		void*		m_pUserData;
+		void*		m_LibHandle;
+		CallBack	m_CallBack;
 	};
-
-	Lib & GetVulkanLib();
+	using LibRef = ::k3d::SharedPtr<Lib>;
 }
 
 extern int LoadVulkan(VkInstance instance, VkDevice device);

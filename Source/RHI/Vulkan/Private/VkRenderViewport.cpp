@@ -9,7 +9,7 @@
 K3D_VK_BEGIN
 
 RenderViewport::RenderViewport(
-	Device * pDevice, 
+	Device::Ptr pDevice, 
 	void * windowHandle, 
 	rhi::GfxSetting & setting)
 	: m_NumBufferCount(-1)
@@ -25,7 +25,6 @@ RenderViewport::RenderViewport(
 			setting.Width, setting.Height, m_NumBufferCount);
 		m_PresentSemaphore = GetDevice()->NewSemaphore();
 		m_RenderSemaphore = GetDevice()->NewSemaphore();
-		RHIRoot::AddViewport(this);
 	}
 }
 
@@ -95,7 +94,7 @@ void RenderViewport::AllocateDefaultRenderPass(rhi::GfxSetting & gfxSetting)
 	if (gfxSetting.HasDepth) 
 	{
 		VkFormat depthFormat = g_FormatTable[gfxSetting.DepthStencilFormat];
-		GetSupportedDepthFormat(GetPhysicalDevice(), &depthFormat);
+		GetGpuRef()->GetSupportedDepthFormat(&depthFormat);
 		RenderpassAttachment depthAttach = 
 			RenderpassAttachment::CreateDepthStencil(depthFormat);
 		depthAttach.GetDescription().InitialLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
@@ -112,7 +111,7 @@ void RenderViewport::AllocateRenderTargets(rhi::GfxSetting & gfxSetting)
 	if (m_RenderPass)
 	{
 		VkFormat depthFormat = g_FormatTable[gfxSetting.DepthStencilFormat];
-		GetSupportedDepthFormat(GetPhysicalDevice(), &depthFormat);
+		GetGpuRef()->GetSupportedDepthFormat(&depthFormat);
 		VkImage depthImage;
 		VkImageCreateInfo image = {};
 		image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -173,7 +172,7 @@ void RenderViewport::AllocateRenderTargets(rhi::GfxSetting & gfxSetting)
 		for (uint32_t i = 0; i < m_NumBufferCount; ++i)
 		{
 			VkImage colorImage = m_pSwapChain->GetBackImage(i);
-			auto colorImageInfo = ImageViewInfo::CreateColorImageView(GetRawDevice(), colorFmt, colorImage);
+			auto colorImageInfo = ImageViewInfo::CreateColorImageView(GetGpuRef(), colorFmt, colorImage);
 			VKLOG(Info, "swapchain imageView created . (0x%0x).", colorImageInfo.first);
 			colorImageInfo.second.components = {
 				VK_COMPONENT_SWIZZLE_R,

@@ -6,11 +6,15 @@
 #include "Allocator.hpp"
 #include "Archive.hpp"
 
-#ifndef K3DPLATFORM_OS_MAC
+#if (K3DPLATFORM_OS_WIN) || (K3DPLATFORM_OS_ANDROID)
 #include <malloc.h>
 #else
 #include <stdlib.h>
 #endif
+
+
+
+
 #include <string.h>
 
 #ifdef DYNARRAY_TEST_CASE
@@ -19,7 +23,7 @@ typedef unsigned int uint32;
 typedef size_t uint64;
 #endif
 
-namespace k3d
+K3D_COMMON_NS
 {
     template <
 		class T,
@@ -83,12 +87,22 @@ namespace k3d
 			m_pElement = (ElementType*)m_Allocator.allocate(m_Capacity*sizeof(ElementType), 0);
             __Initializer<ElementType>::DoInit(m_pElement, m_pElement+m_Capacity);
 		}
-
+        
+        DynArray(int size) K3D_NOEXCEPT
+        : m_ElementIndex(0), m_ElementCount(0), m_Capacity(size), m_pElement(nullptr)
+        {
+            m_pElement = (ElementType*)m_Allocator.allocate(m_Capacity*sizeof(ElementType), 0);
+            __Initializer<ElementType>::DoInit(m_pElement, m_pElement+m_Capacity);
+        }
+        
 		DynArray(DynArray && rhs) : m_ElementCount(0), m_ElementIndex(0), m_pElement(nullptr)
 		{
 			m_ElementCount = rhs.m_ElementCount;
 			m_Capacity = rhs.m_Capacity;
 			m_pElement = rhs.m_pElement;
+			rhs.m_pElement = nullptr;
+			rhs.m_Capacity = 0;
+			rhs.m_ElementCount = 0;
 		}
 
 		DynArray(DynArray && rhs, TAllocator & alloc) : m_ElementCount(0), m_ElementIndex(0), m_pElement(nullptr), m_Allocator(alloc)
@@ -103,7 +117,8 @@ namespace k3d
 			m_ElementCount = rhs.m_ElementCount;
 			m_Capacity = rhs.m_Capacity;
 			m_pElement = (ElementType*)m_Allocator.allocate(m_Capacity*sizeof(ElementType), 0);
-			memcpy(m_pElement, rhs.m_pElement, rhs.m_ElementCount * sizeof(ElementType));
+			__Initializer<ElementType>::DoInit(m_pElement, m_pElement + m_Capacity);
+			__Copier<ElementType>::DoCopy(m_pElement, rhs.m_pElement, rhs.m_ElementCount);
 		}
 
 		template <typename OtherElementType>
@@ -206,6 +221,23 @@ namespace k3d
 			}
 		}
 
+        void Resize(int NewElementCount)
+        {
+            if(NewElementCount > m_Capacity)
+            {
+                ElementType* pElement = (ElementType*)m_Allocator.allocate(NewElementCount*sizeof(ElementType), 0);
+                __Initializer<ElementType>::DoInit(pElement, pElement + NewElementCount);
+                if(m_ElementCount > 0)
+                {
+                    __Copier<ElementType>::DoCopy(pElement, m_pElement, m_ElementCount);
+                    m_Allocator.deallocate(m_pElement, 0);
+                }
+                m_Capacity = NewElementCount;
+                m_pElement = pElement;
+            }
+			m_ElementCount = NewElementCount;
+        }
+        
 		ElementType const& operator[](uint32 index) const
 		{
 			return m_pElement[index];

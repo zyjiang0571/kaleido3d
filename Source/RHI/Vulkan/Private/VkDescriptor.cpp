@@ -21,6 +21,10 @@ VkDescriptorType RHIDataType2VkType(rhi::shc::EBindType const & type)
 	case rhi::shc::EBindType::EBlock:
 		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	case rhi::shc::EBindType::ESampler:
+		return VK_DESCRIPTOR_TYPE_SAMPLER;
+	case rhi::shc::EBindType::ESampledImage:
+		return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	case rhi::shc::EBindType::ESamplerImageCombine:
 		return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	case rhi::shc::EBindType::EStorageImage:
 		return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -90,7 +94,7 @@ void DescriptorAllocator::Initialize(uint32 maxSets, BindingArray const& binding
 
 void DescriptorAllocator::Destroy()
 {
-	if (VK_NULL_HANDLE == m_Pool)
+	if (VK_NULL_HANDLE == m_Pool || !GetRawDevice() )
 		return;
 	vkDestroyDescriptorPool(GetRawDevice(), m_Pool, nullptr);
 	m_Pool = VK_NULL_HANDLE;
@@ -106,7 +110,7 @@ DescriptorSetLayout::DescriptorSetLayout(Device::Ptr pDevice, BindingArray const
 
 DescriptorSetLayout::~DescriptorSetLayout()
 {
-	Destroy();
+	//Destroy();
 }
 
 void DescriptorSetLayout::Initialize(BindingArray const & bindings)
@@ -114,19 +118,19 @@ void DescriptorSetLayout::Initialize(BindingArray const & bindings)
 	VkDescriptorSetLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
     createInfo.bindingCount	= bindings.Count();
     createInfo.pBindings	= bindings.Count()==0 ? nullptr : bindings.Data();
-    K3D_VK_VERIFY(vkCmd::CreateDescriptorSetLayout( GetRawDevice(), &createInfo, nullptr, &m_DescriptorSetLayout ));
+    K3D_VK_VERIFY(vkCreateDescriptorSetLayout( GetRawDevice(), &createInfo, nullptr, &m_DescriptorSetLayout ));
 }
 
 void DescriptorSetLayout::Destroy()
 {
-	if( VK_NULL_HANDLE == m_DescriptorSetLayout ) 
+	if( VK_NULL_HANDLE == m_DescriptorSetLayout || !GetRawDevice() ) 
 		return;
 	vkDestroyDescriptorSetLayout( GetRawDevice(), m_DescriptorSetLayout, nullptr );
+	VKLOG(Info, "DescriptorSetLayout  destroying... -- %0x.", m_DescriptorSetLayout);
 	m_DescriptorSetLayout = VK_NULL_HANDLE;
-	VKLOG(Info, "DescriptorSetLayout-destroying vkDescriptorSetLayout...");
 }
 
-DescriptorSet::DescriptorSet( DescriptorAllocator *descriptorAllocator, VkDescriptorSetLayout layout, BindingArray const & bindings, Device::Ptr pDevice )
+DescriptorSet::DescriptorSet( DescriptorAllocRef descriptorAllocator, VkDescriptorSetLayout layout, BindingArray const & bindings, Device::Ptr pDevice )
 	: DeviceChild( pDevice )
 	, m_DescriptorAllocator( descriptorAllocator )
 	, m_Bindings(bindings)
@@ -135,7 +139,7 @@ DescriptorSet::DescriptorSet( DescriptorAllocator *descriptorAllocator, VkDescri
 }
 
 
-DescriptorSet * DescriptorSet::CreateDescSet(DescriptorAllocator * descriptorPool, VkDescriptorSetLayout layout, BindingArray const & bindings, Device::Ptr pDevice)
+DescriptorSet * DescriptorSet::CreateDescSet(DescriptorAllocRef descriptorPool, VkDescriptorSetLayout layout, BindingArray const & bindings, Device::Ptr pDevice)
 {
 	return new DescriptorSet(descriptorPool, layout, bindings, pDevice);
 }
@@ -145,38 +149,51 @@ DescriptorSet::~DescriptorSet()
 	Destroy();
 }
 
+void DescriptorSet::Update(uint32 bindSet, rhi::SamplerRef pRHISampler)
+{
+	auto pSampler = StaticPointerCast<Sampler>(pRHISampler);
+	VkDescriptorImageInfo imageInfo = { pSampler->NativeHandle(), VK_NULL_HANDLE, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+	m_BoundDescriptorSet[bindSet].pImageInfo = &imageInfo;
+	vkUpdateDescriptorSets(GetRawDevice(), 1, &m_BoundDescriptorSet[bindSet], 0, NULL);
+	VKLOG(Info, "%s , Set (0x%0x) updated with sampler(location:0x%x).", __K3D_FUNC__, m_DescriptorSet, pSampler->NativeHandle());
+}
+
 void DescriptorSet::Update(uint32 bindSet, rhi::GpuResourceRef gpuResource)
 {
-	auto desc = gpuResource->GetResourceDesc();
+	auto desc = gpuResource->GetDesc();
 	switch(desc.Type)
 	{
 	case rhi::EGT_Buffer: 
 	{
-		VkDescriptorBufferInfo bufferInfo = { (VkBuffer)gpuResource->GetResourceLocation(), 0, gpuResource->GetResourceSize() };
+		VkDescriptorBufferInfo bufferInfo = { (VkBuffer)gpuResource->GetLocation(), 0, gpuResource->GetSize() };
 		m_BoundDescriptorSet[bindSet].pBufferInfo = &bufferInfo;
 		vkUpdateDescriptorSets(GetRawDevice(), 1, &m_BoundDescriptorSet[bindSet], 0, NULL);
 		VKLOG(Info, "%s , Set (0x%0x) updated with buffer(location:0x%x, size:%d).", __K3D_FUNC__, m_DescriptorSet,
-			gpuResource->GetResourceLocation(), gpuResource->GetResourceSize());
+			gpuResource->GetLocation(), gpuResource->GetSize());
 		break;
 	}
 	case rhi::EGT_Texture1D:
 	case rhi::EGT_Texture2D:
 	case rhi::EGT_Texture3D:
-	case rhi::EGT_Texture2DArray:
+	case rhi::EGT_Texture2DArray: // combined/seperated image sampler should be considered
 	{
-		auto pTex = k3d::DynamicPointerCast<Texture>(gpuResource);
+		auto pTex = k3d::StaticPointerCast<Texture>(gpuResource);
 		auto rSampler = k3d::StaticPointerCast<Sampler>(pTex->GetSampler());
 		assert(rSampler);
 		auto srv = k3d::StaticPointerCast<ShaderResourceView>(pTex->GetResourceView());
-		VkDescriptorImageInfo imageInfo = { rSampler->NativePtr(), srv->NativeImageView(), pTex->GetImageLayout() }; //TODO : sampler shouldn't be null
-		VKLOG(Warn, "pTex->GetSampler return null!");
+		VkDescriptorImageInfo imageInfo = { rSampler->NativeHandle(), srv->NativeImageView(), pTex->GetImageLayout() }; //TODO : sampler shouldn't be null
 		m_BoundDescriptorSet[bindSet].pImageInfo = &imageInfo;
 		vkUpdateDescriptorSets(GetRawDevice(), 1, &m_BoundDescriptorSet[bindSet], 0, NULL);
 		VKLOG(Info, "%s , Set (0x%0x) updated with image(location:0x%x, size:%d).", __K3D_FUNC__, m_DescriptorSet,
-			gpuResource->GetResourceLocation(), gpuResource->GetResourceSize());
+			gpuResource->GetLocation(), gpuResource->GetSize());
 		break;
 	}
 	}
+}
+
+uint32 DescriptorSet::GetSlotNum() const
+{
+	return (uint32)m_BoundDescriptorSet.size();
 }
 
 void DescriptorSet::Initialize( VkDescriptorSetLayout layout, BindingArray const & bindings)
@@ -186,7 +203,7 @@ void DescriptorSet::Initialize( VkDescriptorSetLayout layout, BindingArray const
 	allocInfo.descriptorPool		= m_DescriptorAllocator->m_Pool;
 	allocInfo.descriptorSetCount	= static_cast<uint32_t>( layouts.size() );
 	allocInfo.pSetLayouts			= layouts.empty() ? nullptr : layouts.data();
-	K3D_VK_VERIFY( vkAllocateDescriptorSets( GetRawDevice(), &allocInfo, &m_DescriptorSet ) );
+	K3D_VK_VERIFY(vkAllocateDescriptorSets( GetRawDevice(), &allocInfo, &m_DescriptorSet ) );
 	VKLOG(Info, "%s , Set (0x%0x) created.", __K3D_FUNC__, m_DescriptorSet);
 
 	for (auto& binding : m_Bindings)
@@ -203,19 +220,18 @@ void DescriptorSet::Initialize( VkDescriptorSetLayout layout, BindingArray const
 
 void DescriptorSet::Destroy()
 {
-	if( VK_NULL_HANDLE == m_DescriptorSet ) 
+	if( VK_NULL_HANDLE == m_DescriptorSet || !GetRawDevice() ) 
 		return;
 
-	if( nullptr != m_DescriptorAllocator )
+	if (m_DescriptorAllocator)
 	{
 		//const auto& options = m_DescriptorAllocator->m_Options;
 		//if( options.hasFreeDescriptorSetFlag() ) {
 			VkDescriptorSet descSets[1] = { m_DescriptorSet };
 			vkFreeDescriptorSets( GetRawDevice(), m_DescriptorAllocator->m_Pool, 1, descSets );
+			m_DescriptorSet = VK_NULL_HANDLE;
 		//}
 	}
-	m_DescriptorSet = VK_NULL_HANDLE;
-	m_DescriptorAllocator = nullptr;
 	VKRHI_METHOD_TRACE
 }
 

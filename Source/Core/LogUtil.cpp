@@ -4,13 +4,14 @@
 #include <cstdarg>
 #include <mutex>
 #include <Config/OSHeaders.h>
+#include "Log/Public/ILogModule.h"
 #include "../../Data/style.css.h"
 
 namespace k3d 
 {
 	void Log(ELogLevel const & Lv, const char * tag, const char * fmt, ...)
 	{
-		static thread_local char dbgStr[2048] = { 0 };
+		static /*thread_local*/ char dbgStr[2048] = { 0 };
 		va_list va;
 		va_start(va, fmt);
 #if K3DPLATFORM_OS_ANDROID
@@ -20,7 +21,7 @@ namespace k3d
 #endif
 		va_end(va);
 
-		k3d::ILogModule* logModule = (k3d::ILogModule*)GlobalModuleManager.FindModule("KawaLog");
+		auto logModule = StaticPointerCast<k3d::ILogModule>(GlobalModuleManager.FindModule("KawaLog"));
 		if (logModule)
 		{
 			int logType = (int)ELoggerType::EConsole;

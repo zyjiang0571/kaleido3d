@@ -15,7 +15,9 @@ static const char* LIBVULKAN = "libvulkan.so";
 namespace dynlib
 {
 	Lib::Lib(const char* libName)
-		: m_LibHandle(NULL)
+		: m_pUserData(nullptr)
+		, m_LibHandle(nullptr)
+		, m_CallBack(nullptr)
 	{
 #if K3DPLATFORM_OS_WIN
 		m_LibHandle = LoadLibrary(libName);
@@ -28,8 +30,14 @@ namespace dynlib
 	{
 		if (m_LibHandle)
 		{
+			if (m_CallBack)
+			{
+				m_CallBack(m_pUserData);
+				m_CallBack = nullptr;
+			}
+			VKLOG(Warn, "Vulkan Library will be freed, any vk-call after here(%s@%d) would be dangerous!", __FILE__, __LINE__);
 #if K3DPLATFORM_OS_WIN
-			::FreeLibrary((HMODULE)m_LibHandle);
+			//::FreeLibrary((HMODULE)m_LibHandle);
 #else
 			dlclose(m_LibHandle);
 #endif
@@ -46,12 +54,14 @@ namespace dynlib
 #endif
 	}
 
-	Lib & GetVulkanLib() {
-		static Lib vkLib(LIBVULKAN);
-		return vkLib;
+	void Lib::SetDestroyCallBack(void * userData, CallBack callback)
+	{
+		m_pUserData = userData;
+		m_CallBack = callback;
 	}
 }
 
+#ifdef VK_NO_PROTOTYPES
 _DEF_VK_FUNC_(GetInstanceProcAddr);
 _DEF_VK_FUNC_(GetDeviceProcAddr);
 
@@ -203,14 +213,11 @@ _DEF_VK_FUNC_(CmdNextSubpass);
 _DEF_VK_FUNC_(CmdEndRenderPass);
 _DEF_VK_FUNC_(CmdExecuteCommands);
 _DEF_VK_FUNC_(AcquireNextImageKHR);
+#endif
 
 int LoadVulkan(VkInstance instance, VkDevice device)
 {
-	vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)dynlib::GetVulkanLib().ResolveEntry("vkGetInstanceProcAddr");
-	vkEnumerateInstanceLayerProperties = (PFN_vkEnumerateInstanceLayerProperties)dynlib::GetVulkanLib().ResolveEntry("vkEnumerateInstanceLayerProperties");
-	vkEnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)dynlib::GetVulkanLib().ResolveEntry("vkEnumerateInstanceExtensionProperties");
-	vkGetPhysicalDeviceSurfaceSupportKHR = (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)dynlib::GetVulkanLib().ResolveEntry("vkGetPhysicalDeviceSurfaceSupportKHR");
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)dynlib::GetVulkanLib().ResolveEntry("vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+#ifdef VK_NO_PROTOTYPES
 
 #if K3DPLATFORM_OS_WIN
 	_VK_GET_INSTANCE_POINTER_(instance, CreateWin32SurfaceKHR);
@@ -353,7 +360,7 @@ int LoadVulkan(VkInstance instance, VkDevice device)
 	_VK_GET_DEVICE_POINTER_(device, CmdEndRenderPass);
 	_VK_GET_DEVICE_POINTER_(device, CmdExecuteCommands);
 	_VK_GET_DEVICE_POINTER_(device, AcquireNextImageKHR);
-
+#endif
 	return 0;
 }
 
@@ -494,7 +501,7 @@ VkResult vkCmd::CreateGraphicsPipelines(VkDevice Device, VkPipelineCache Pipelin
 {
 	std::stringstream param;
 	param << "vkCmd::CreateGraphicsPipelines() device=" << std::hex << std::setfill('0') << Device << ", cache=" << std::hex << std::setfill('0') << PipelineCache << ", CreateInfoCount=" << CreateInfoCount;
-	if (CreateInfoCount)
+	if (CreateInfoCount && CreateInfos)
 	{
 		for (int i = 0; i < CreateInfoCount; i++)
 			param << ", \n\tCreateInfos[" << i << "]=" << DumpGraphicsPipelineCreateInfo(CreateInfos[i]);

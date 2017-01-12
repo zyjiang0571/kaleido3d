@@ -96,19 +96,28 @@ K3D_COMMON_NS
 		}
 	};
 
+	template<size_t N, size_t Align = alignof(double)>
+	struct AlignedStorage
+	{
+		typedef struct {
+			alignas(Align) unsigned char CharData[N];
+		} Type;
+	};
+
+
 	template<typename T>
 	class TRefCountInstance : public RefCountBase
 	{
 	public:
-		T m_Memory;
+		typename AlignedStorage<sizeof(T), alignof(T)>::Type m_Memory; // use storage substitude
 
 		T* GetValue() { return static_cast<T*>(static_cast<void*>(&m_Memory)); }
 
 		template <typename... Args>
 		TRefCountInstance(Args&&... args)
 			: RefCountBase()
-			, m_Memory(std::forward<Args>(args)...)
 		{
+			new (&m_Memory) T(std::forward<Args>(args)...);
 		}
 		
 		void FreeValue() K3D_NOEXCEPT override 

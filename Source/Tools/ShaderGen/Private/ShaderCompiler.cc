@@ -1,4 +1,6 @@
+#include <Kaleido3D.h>
 #include "Public/ShaderCompiler.h"
+#include <Core/LogUtil.h>
 #include "GLSLCompiler.h"
 #if _WIN32
 #include "DXCompiler.h"
@@ -12,7 +14,10 @@ class ShaderCompilerModule : public rhi::IShModule
 {
 public:
 	ShaderCompilerModule() {}
-	~ShaderCompilerModule() override {}
+	~ShaderCompilerModule() override 
+	{
+		KLOG(Info, ShaderCompilerModule, "Destroying..");
+	}
 
 	void Start() override {}
 	void Shutdown() override {}

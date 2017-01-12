@@ -61,6 +61,17 @@ rhi::shc::EDataType spirTypeToRHIAttribType(const spirv_cross::SPIRType& spirTyp
 	return result;
 }
 
+spv::ExecutionModel rhiShaderStageToSpvModel(rhi::EShaderType const& type)
+{
+	switch(type)
+	{
+		case rhi::ES_Vertex:
+			return spv::ExecutionModelVertex;
+		case rhi::ES_Fragment:
+			return spv::ExecutionModelFragment;
+	}
+	return spv::ExecutionModelVertex;
+}
 
 rhi::shc::EDataType spirTypeToGlslUniformDataType(const spirv_cross::SPIRType& spirType)
 {

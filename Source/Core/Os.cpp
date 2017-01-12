@@ -212,7 +212,7 @@ namespace Os
 		if (m_hFile)
 		{
 			::CloseHandle(m_hFile);
-			m_hFile = INVALID_HANDLE_VALUE;
+			m_hFile = NULL;
 		}
 #else
 		if (m_fd) ::close(m_fd);
@@ -615,6 +615,7 @@ namespace Os
 	Mutex::~Mutex()
 	{
 		delete m_Impl;
+		m_Impl = nullptr;
 	}
 
 	void Mutex::Lock()

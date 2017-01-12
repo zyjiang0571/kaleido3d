@@ -24,6 +24,11 @@ namespace
 		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
 	};
 
+	VkVertexInputRate g_InputRates[] = {
+			VK_VERTEX_INPUT_RATE_VERTEX,
+			VK_VERTEX_INPUT_RATE_INSTANCE,
+	};
+
 	VkCullModeFlagBits g_CullMode[rhi::RasterizerState::CullModeNum] = {
 		VK_CULL_MODE_NONE,
 		VK_CULL_MODE_FRONT_BIT,

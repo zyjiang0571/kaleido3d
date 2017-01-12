@@ -3,7 +3,7 @@
 #if K3DPLATFORM_OS_WIN
 #include <RHI/Vulkan/VkCommon.h>
 #include <RHI/Vulkan/Public/IVkRHI.h>
-#elif K3DPLATFORM_OS_MAC
+#elif K3DPLATFORM_OS_MAC||K3DPLATFORM_OS_IOS
 #include <RHI/Metal/Common.h>
 #include <RHI/Metal/Public/IMetalRHI.h>
 #else
@@ -29,13 +29,13 @@ namespace render
 		m_Width = w;
 		m_Height = h;
 		m_RhiType = type;
-#ifndef K3DPLATFORM_OS_MAC
-		IVkRHI* pVkRHI = (IVkRHI*)GlobalModuleManager.FindModule("RHI_Vulkan");
+#if !(K3DPLATFORM_OS_MAC || K3DPLATFORM_OS_IOS)
+		auto pVkRHI = k3d::StaticPointerCast<IVkRHI>(ACQUIRE_PLUGIN(RHI_Vulkan));
 		pVkRHI->Initialize("RenderContext", true);
 		pVkRHI->Start();
 		m_pDevice = pVkRHI->GetPrimaryDevice();
 #else 
-        IMetalRHI* pMtlRHI = (IMetalRHI*)GlobalModuleManager.FindModule("RHI_Metal");
+        auto pMtlRHI = k3d::StaticPointerCast<IMetalRHI>(ACQUIRE_PLUGIN(RHI_Metal));
         if(pMtlRHI)
         {
             pMtlRHI->Start();
@@ -77,6 +77,7 @@ namespace render
     
     void RenderContext::Destroy()
     {
+		m_pDevice->WaitIdle();
 		KLOG(Info, "RenderContext", "Destroyed Render Context.");
     }
     

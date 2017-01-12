@@ -4,6 +4,21 @@
 
 K3D_VK_BEGIN
 
+// Buffer functors
+decltype(vkCreateBufferView)* ResTrait<VkBuffer>::CreateView = &vkCreateBufferView;
+decltype(vkDestroyBufferView)* ResTrait<VkBuffer>::DestroyView = &vkDestroyBufferView;
+decltype(vkCreateBuffer)* ResTrait<VkBuffer>::Create = &vkCreateBuffer;
+decltype(vkDestroyBuffer)* ResTrait<VkBuffer>::Destroy = &vkDestroyBuffer;
+decltype(vkGetBufferMemoryRequirements)* ResTrait<VkBuffer>::GetMemoryInfo = &vkGetBufferMemoryRequirements;
+decltype(vkBindBufferMemory)* ResTrait<VkBuffer>::BindMemory = &vkBindBufferMemory;
+
+decltype(vkCreateImageView)* ResTrait<VkImage>::CreateView = &vkCreateImageView;
+decltype(vkDestroyImageView)* ResTrait<VkImage>::DestroyView = &vkDestroyImageView;
+decltype(vkCreateImage)* ResTrait<VkImage>::Create = &vkCreateImage;
+decltype(vkDestroyImage)* ResTrait<VkImage>::Destroy = &vkDestroyImage;
+decltype(vkGetImageMemoryRequirements)* ResTrait<VkImage>::GetMemoryInfo = &vkGetImageMemoryRequirements;
+decltype(vkBindImageMemory)* ResTrait<VkImage>::BindMemory = &vkBindImageMemory;
+
 VkDeviceSize CalcAlignedOffset(VkDeviceSize offset, VkDeviceSize align)
 {
 	VkDeviceSize n = offset / align;
@@ -137,10 +152,11 @@ void CommandAllocator::Initialize()
 
 void CommandAllocator::Destroy()
 {
-	if (VK_NULL_HANDLE == m_Pool)
+	if (VK_NULL_HANDLE == m_Pool || !GetRawDevice() )
 	{
 		return;
 	}
+	VKLOG(Info, "CommandAllocator destroy.. -- %d. (device:0x%0x)", m_Pool, GetRawDevice());
 	vkDestroyCommandPool(GetRawDevice(), m_Pool, nullptr);
 	m_Pool = VK_NULL_HANDLE;
 }

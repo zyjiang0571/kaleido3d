@@ -10,8 +10,8 @@ K3D_VK_BEGIN
 
 using namespace Os;
 
-CommandQueue::CommandQueue(Device::Ptr pDevice, VkQueueFlags queueTypes, uint32 queueFamilyIndex, uint32 queueIndex)
-	: DeviceChild(pDevice)
+CommandQueue::CommandQueue(VkDevice pDevice, VkQueueFlags queueTypes, uint32 queueFamilyIndex, uint32 queueIndex)
+	: m_Device(pDevice)
 {
 	Initialize(queueTypes, queueFamilyIndex, queueIndex);
 }
@@ -45,7 +45,7 @@ VkResult CommandQueue::Submit(const std::vector<VkSubmitInfo>& submits, VkFence 
 	K3D_ASSERT(!submits.empty());
 	uint32_t submitCount = static_cast<uint32_t>(submits.size());
 	const VkSubmitInfo* pSubmits = submits.data();
-	VkResult err = vkCmd::QueueSubmit(m_Queue, submitCount, pSubmits, fence);
+	VkResult err = vkQueueSubmit(m_Queue, submitCount, pSubmits, fence);
 	K3D_ASSERT((err == VK_SUCCESS) || (err == VK_ERROR_DEVICE_LOST));
 	return err;
 }
@@ -59,7 +59,7 @@ void CommandQueue::Initialize(VkQueueFlags queueTypes, uint32 queueFamilyIndex, 
 {
 	m_QueueFamilyIndex = queueFamilyIndex;
 	m_QueueIndex = queueIndex;
-	vkGetDeviceQueue(GetRawDevice(), m_QueueFamilyIndex, m_QueueIndex, &m_Queue);
+	vkGetDeviceQueue(m_Device, m_QueueFamilyIndex, m_QueueIndex, &m_Queue);
 }
 
 void CommandQueue::Destroy()
@@ -76,10 +76,10 @@ CommandContextPool::CommandContextPool(Device::Ptr pDevice)
 
 CommandContextPool::~CommandContextPool()
 {
-	VKLOG(Info, "CommandContextPool-Destroying....");
+	VKLOG(Info, "CommandContextPool Destroying....");
 }
 
-CommandContext* CommandContextPool::RequestContext(rhi::ECommandType type)
+rhi::CommandContextRef CommandContextPool::RequestContext(rhi::ECommandType type)
 {
 	::Os::Mutex::AutoLock lock(&m_ContextMutex);
 	PtrCmdAlloc pAllocator = RequestCommandAllocator();
@@ -94,7 +94,7 @@ CommandContext* CommandContextPool::RequestContext(rhi::ECommandType type)
 	}
 	VkCommandBuffer cmdBuffer;
 	K3D_VK_VERIFY(vkAllocateCommandBuffers(GetRawDevice(), &info, &cmdBuffer));
-	auto context = new CommandContext(GetDevice(), cmdBuffer, pAllocator->GetCommandPool(), type);
+	auto context = rhi::CommandContextRef(new CommandContext(GetDevice(), cmdBuffer, pAllocator->GetCommandPool(), type));
 	//uint32 tid = Thread::GetId();
 	//m_ContextList[tid].push_back(context);
 	VKLOG(Info, "CommandContextPool::RequestContext() called in thread [%s], (cmdBuf=0x%x, type=%d).", Thread::GetCurrentThreadName().c_str(), cmdBuffer, type);
@@ -121,14 +121,16 @@ CommandContext::CommandContext(Device::Ptr pDevice)
 }
 
 CommandContext::CommandContext(Device::Ptr pDevice, VkCommandBuffer cmdBuf, VkCommandPool pool, rhi::ECommandType type)
-	: DeviceChild(pDevice), m_CommandBuffer(cmdBuf), m_CommandPool(pool), m_CmdType(type)
+	: DeviceChild(pDevice), m_CommandBuffer(cmdBuf),/* m_CommandPool(pool),*/ m_CmdType(type)
 {
 }
 
 CommandContext::~CommandContext()
 {
-	VKRHI_METHOD_TRACE
-	vkFreeCommandBuffers(GetRawDevice(), m_CommandPool, 1, &m_CommandBuffer);
+	GetDevice()->WaitIdle();
+	VKLOG(Info, "CommandContext destroy.. -- %0x. ", m_CommandBuffer);
+	//vkFreeCommandBuffers(GetRawDevice(), m_CommandPool, 1, &m_CommandBuffer);
+	//m_CommandBuffer = VK_NULL_HANDLE;
 }
 
 void CommandContext::Detach(rhi::IDevice * pDevice)
@@ -138,13 +140,13 @@ void CommandContext::Detach(rhi::IDevice * pDevice)
 
 void CommandContext::CopyBuffer(rhi::IGpuResource& Dest, rhi::IGpuResource& Src, rhi::CopyBufferRegion const& Region)
 {
-	vkCmd::CopyBuffer(m_CommandBuffer, (VkBuffer)Src.GetResourceLocation(), (VkBuffer)Dest.GetResourceLocation(), 1, (const VkBufferCopy*)&Region);
+	vkCmdCopyBuffer(m_CommandBuffer, (VkBuffer)Src.GetLocation(), (VkBuffer)Dest.GetLocation(), 1, (const VkBufferCopy*)&Region);
 }
 
 void CommandContext::CopyTexture(const rhi::TextureCopyLocation & Dest, const rhi::TextureCopyLocation & Src)
 {
 	K3D_ASSERT(Dest.pResource && Src.pResource);
-	if (Src.pResource->GetResourceType() == rhi::EGT_Buffer && Dest.pResource->GetResourceType() != rhi::EGT_Buffer)
+	if (Src.pResource->GetDesc().Type == rhi::EGT_Buffer && Dest.pResource->GetDesc().Type != rhi::EGT_Buffer)
 	{
 		DynArray<VkBufferImageCopy> Copies;
 		for (auto footprint : Src.SubResourceFootPrints)
@@ -156,7 +158,7 @@ void CommandContext::CopyTexture(const rhi::TextureCopyLocation & Dest, const rh
 			bImgCpy.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 			Copies.Append(bImgCpy);
 		}
-		vkCmdCopyBufferToImage(m_CommandBuffer, (VkBuffer)Src.pResource->GetResourceLocation(), (VkImage)Dest.pResource->GetResourceLocation(), 
+		vkCmdCopyBufferToImage(m_CommandBuffer, (VkBuffer)Src.pResource->GetLocation(), (VkImage)Dest.pResource->GetLocation(),
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, Copies.Count(), Copies.Data());
 	}
 }
@@ -238,7 +240,7 @@ void CommandContext::SubmitAndWait(PtrSemaphore wait, PtrSemaphore signal, PtrFe
 			q = GetImmCmdQueue();
 			break;
 	}
-	q->Submit({ submitInfo }, fence ? fence->m_Fence : VK_NULL_HANDLE);
+	q->Submit({ submitInfo }, fence ? fence->NativeHandle() : VK_NULL_HANDLE);
 }
 
 void CommandContext::InitCommandBufferPool()
@@ -347,6 +349,11 @@ void CommandContext::PipelineBarrierImageMemory(const ImageMemoryBarrierParams &
 	VkImageMemoryBarrier barrier = params.m_Barrier;
 	switch (params.m_Barrier.oldLayout)
 	{
+	case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+	{
+		barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		break;
+	}
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 	{
 		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -390,7 +397,11 @@ void CommandContext::PipelineBarrierImageMemory(const ImageMemoryBarrierParams &
 		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		break;
 	}
-
+	case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+	{
+		barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		break;
+	}
 	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
 	{
 		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
@@ -406,7 +417,6 @@ void CommandContext::PipelineBarrierImageMemory(const ImageMemoryBarrierParams &
 		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 		break;
 	}
-
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 	{
 		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -434,8 +444,8 @@ void CommandContext::SetScissorRects(uint32 count, VkRect2D * pRects)
 void CommandContext::ClearColorBuffer(rhi::GpuResourceRef gpuRes, kMath::Vec4f const& color)
 {
 	VkImageSubresourceRange image_subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-	vkCmdClearColorImage(m_CommandBuffer, (VkImage)gpuRes->GetResourceLocation(),
-		g_ResourceState[ gpuRes->GetUsageState() ], (const VkClearColorValue*)&color, 1, &image_subresource_range);
+	vkCmdClearColorImage(m_CommandBuffer, (VkImage)gpuRes->GetLocation(),
+		g_ResourceState[ gpuRes->GetState() ], (const VkClearColorValue*)&color, 1, &image_subresource_range);
 }
 
 void CommandContext::ClearDepthBuffer(rhi::IDepthBuffer* iDepthBuffer)
@@ -499,7 +509,7 @@ void CommandContext::SetPipelineLayout(rhi::PipelineLayoutRef pRHIPipelineLayout
 	K3D_ASSERT(pRHIPipelineLayout);
 	auto pipelineLayout = StaticPointerCast<PipelineLayout>(pRHIPipelineLayout);
 	VkDescriptorSet sets[] = { pipelineLayout->GetNativeDescriptorSet() };
-	vkCmdBindDescriptorSets(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->GetNativeLayout(), 0, 1, sets, 0, NULL);
+	vkCmdBindDescriptorSets(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->NativeHandle(), 0, 1, sets, 0, NULL);
 }
 
 void CommandContext::SetPrimitiveType(rhi::EPrimitiveType)
@@ -557,16 +567,16 @@ void CommandContext::Dispatch(uint32 x, uint32 y, uint32 z)
 
 void CommandContext::TransitionResourceBarrier(rhi::GpuResourceRef resource,/* rhi::EPipelineStage stage,*/ rhi::EResourceState dstState)
 {
-	VKRHI_METHOD_TRACE
-	auto pTex = k3d::DynamicPointerCast<Texture>(resource);
+	//VKRHI_METHOD_TRACE
+	auto pTex = k3d::StaticPointerCast<Texture>(resource);
 	if (pTex)
 	{
-		VkImageLayout srcLayout = g_ResourceState[resource->GetUsageState()];
+		VkImageLayout srcLayout = g_ResourceState[resource->GetState()];
 		VkImageLayout dstLayout = g_ResourceState[dstState];
 		ImageMemoryBarrierParams param(pTex->Get(), srcLayout, dstLayout);
 		VkImageSubresourceRange texSubRange = pTex->GetSubResourceRange();
 		param.SrcStageMask(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT).DstStageMask(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT).SubResourceRange(texSubRange);
-		if (dstState == rhi::ERS_TransferDst || resource->GetUsageState() == rhi::ERS_TransferDst)
+		if (dstState == rhi::ERS_TransferDst || resource->GetState() == rhi::ERS_TransferDst)
 		{
 			param.SrcStageMask(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT).DstStageMask(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 		}

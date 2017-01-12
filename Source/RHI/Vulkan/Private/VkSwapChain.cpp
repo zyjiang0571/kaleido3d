@@ -7,10 +7,6 @@ K3D_VK_BEGIN
 
 SwapChain::SwapChain(Device::Ptr pDevice) : DeviceChild(pDevice), m_ReserveBackBufferCount(0)
 {
-	if(pDevice)
-	{
-		InitProcs();
-	}
 }
 
 SwapChain::~SwapChain()
@@ -26,7 +22,7 @@ void SwapChain::Initialize(void * WindowHandle, rhi::GfxSetting & gfxSetting)
 	m_SelectedPresentQueueFamilyIndex					= ChooseQueueIndex();
 	m_SwapchainExtent = { gfxSetting.Width, gfxSetting.Height };
 	VkSurfaceCapabilitiesKHR surfProperties;
-	K3D_VK_VERIFY(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(GetPhysicalDevice(), m_Surface, &surfProperties));
+	K3D_VK_VERIFY(GetGpuRef()->GetSurfaceCapabilitiesKHR(m_Surface, &surfProperties));
 	m_SwapchainExtent = surfProperties.currentExtent;
 	/*gfxSetting.Width = m_SwapchainExtent.width;
 	gfxSetting.Height = m_SwapchainExtent.height;*/
@@ -36,9 +32,9 @@ void SwapChain::Initialize(void * WindowHandle, rhi::GfxSetting & gfxSetting)
 		surfProperties.maxImageCount);
 	m_DesiredBackBufferCount = desiredNumBuffers;
 	InitSwapChain(m_DesiredBackBufferCount, chosenFormat, swapchainPresentMode, surfProperties.currentTransform);
-	K3D_VK_VERIFY(fpGetSwapchainImagesKHR(GetRawDevice(), m_SwapChain, &m_ReserveBackBufferCount, nullptr));
+	K3D_VK_VERIFY(vkGetSwapchainImagesKHR(GetRawDevice(), m_SwapChain, &m_ReserveBackBufferCount, nullptr));
 	m_ColorImages.resize(m_ReserveBackBufferCount);
-	K3D_VK_VERIFY(fpGetSwapchainImagesKHR(GetRawDevice(), m_SwapChain, &m_ReserveBackBufferCount, m_ColorImages.data()));
+	K3D_VK_VERIFY(vkGetSwapchainImagesKHR(GetRawDevice(), m_SwapChain, &m_ReserveBackBufferCount, m_ColorImages.data()));
 	gfxSetting.BackBufferCount = m_ReserveBackBufferCount;
 	VKLOG(Info, "[SwapChain::Initialize] desired imageCount=%d, reserved imageCount = %d.", m_DesiredBackBufferCount, m_ReserveBackBufferCount);
 }
@@ -46,9 +42,9 @@ void SwapChain::Initialize(void * WindowHandle, rhi::GfxSetting & gfxSetting)
 uint32 SwapChain::AcquireNextImage(PtrSemaphore presentSemaphore, PtrFence pFence)
 {
 	uint32 imageIndex;
-	VkResult result = fpAcquireNextImageKHR(GetRawDevice(), m_SwapChain, UINT64_MAX,
+	VkResult result = vkAcquireNextImageKHR(GetRawDevice(), m_SwapChain, UINT64_MAX,
 		presentSemaphore ? presentSemaphore->m_Semaphore:VK_NULL_HANDLE, 
-		pFence ? pFence->m_Fence : VK_NULL_HANDLE,
+		pFence ? pFence->NativeHandle() : VK_NULL_HANDLE,
 		&imageIndex);
 	switch (result)
 	{
@@ -73,7 +69,7 @@ VkResult SwapChain::Present(uint32 imageIndex, PtrSemaphore renderingFinishSemap
 	presentInfo.pSwapchains = &m_SwapChain;
 	presentInfo.waitSemaphoreCount = renderSem ? 1 : 0;
 	presentInfo.pWaitSemaphores = &renderSem;
-	return fpQueuePresentKHR(GetImmCmdQueue()->GetNativeHandle(), &presentInfo);
+	return vkQueuePresentKHR(GetImmCmdQueue()->GetNativeHandle(), &presentInfo);
 }
 
 void SwapChain::InitSurface(void * WindowHandle)
@@ -83,21 +79,21 @@ void SwapChain::InitSurface(void * WindowHandle)
 	SurfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	SurfaceCreateInfo.hinstance = GetModuleHandle(nullptr);
 	SurfaceCreateInfo.hwnd = (HWND)WindowHandle;
-	K3D_VK_VERIFY(vkCreateWin32SurfaceKHR(RHIRoot::GetInstance(), &SurfaceCreateInfo, nullptr, &m_Surface));
+	K3D_VK_VERIFY(vkCreateWin32SurfaceKHR(GetGpuRef()->GetInstance()->m_Instance, &SurfaceCreateInfo, nullptr, &m_Surface));
 #elif K3DPLATFORM_OS_ANDROID
 	VkAndroidSurfaceCreateInfoKHR SurfaceCreateInfo = {};
 	SurfaceCreateInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
 	SurfaceCreateInfo.window = (ANativeWindow*)WindowHandle;
-	K3D_VK_VERIFY(vkCreateAndroidSurfaceKHR(RHIRoot::GetInstance(), &SurfaceCreateInfo, nullptr, &m_Surface));
+	K3D_VK_VERIFY(vkCreateAndroidSurfaceKHR(GetGpuRef()->GetInstance()->m_Instance, &SurfaceCreateInfo, nullptr, &m_Surface));
 #endif
 }
 
 VkPresentModeKHR SwapChain::ChoosePresentMode()
 {
 	uint32_t presentModeCount;
-	K3D_VK_VERIFY(fpGetPhysicalDeviceSurfacePresentModesKHR(GetPhysicalDevice(), m_Surface, &presentModeCount, NULL));
+	K3D_VK_VERIFY(GetGpuRef()->GetSurfacePresentModesKHR(m_Surface, &presentModeCount, NULL));
 	std::vector<VkPresentModeKHR> presentModes(presentModeCount);
-	K3D_VK_VERIFY(fpGetPhysicalDeviceSurfacePresentModesKHR(GetPhysicalDevice(), m_Surface, &presentModeCount, presentModes.data()));
+	K3D_VK_VERIFY(GetGpuRef()->GetSurfacePresentModesKHR(m_Surface, &presentModeCount, presentModes.data()));
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 	for (size_t i = 0; i < presentModeCount; i++)
 	{
@@ -117,9 +113,9 @@ VkPresentModeKHR SwapChain::ChoosePresentMode()
 std::pair<VkFormat, VkColorSpaceKHR> SwapChain::ChooseFormat(rhi::GfxSetting & gfxSetting)
 {
 	uint32_t formatCount;
-	K3D_VK_VERIFY(fpGetPhysicalDeviceSurfaceFormatsKHR(GetPhysicalDevice(), m_Surface, &formatCount, NULL));
+	K3D_VK_VERIFY(GetGpuRef()->GetSurfaceFormatsKHR(m_Surface, &formatCount, NULL));
 	std::vector<VkSurfaceFormatKHR> surfFormats(formatCount);
-	K3D_VK_VERIFY(fpGetPhysicalDeviceSurfaceFormatsKHR(GetPhysicalDevice(), m_Surface, &formatCount, surfFormats.data()));
+	K3D_VK_VERIFY(GetGpuRef()->GetSurfaceFormatsKHR(m_Surface, &formatCount, surfFormats.data()));
 	VkFormat colorFormat;
 	VkColorSpaceKHR colorSpace;
 	if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED)
@@ -142,7 +138,7 @@ int SwapChain::ChooseQueueIndex()
 
 	for (uint32_t i = 0; i < GetDevice()->GetQueueCount(); ++i)
 	{
-		vkGetPhysicalDeviceSurfaceSupportKHR(GetPhysicalDevice(), i, m_Surface, &queuePresentSupport[i]);
+		GetGpuRef()->GetSurfaceSupportKHR(i, m_Surface, &queuePresentSupport[i]);
 		if (queuePresentSupport[i])
 		{
 			chosenIndex = i;
@@ -172,20 +168,21 @@ void SwapChain::InitSwapChain(uint32 numBuffers, std::pair<VkFormat, VkColorSpac
 	swapchainCI.oldSwapchain = VK_NULL_HANDLE;
 	swapchainCI.clipped = VK_TRUE;
 	swapchainCI.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	K3D_VK_VERIFY(fpCreateSwapchainKHR(GetRawDevice(), &swapchainCI, nullptr, &m_SwapChain));
+	K3D_VK_VERIFY(vkCreateSwapchainKHR(GetRawDevice(), &swapchainCI, nullptr, &m_SwapChain));
 	VKLOG(Info, "Init Swapchain with ColorFmt(%d)", m_ColorAttachFmt);
 }
 
 void SwapChain::Destroy()
 {
+	VKLOG(Info, "SwapChain Destroying..");
 	if (m_SwapChain)
 	{
-		fpDestroySwapchainKHR(GetRawDevice(), m_SwapChain, nullptr);
+		vkDestroySwapchainKHR(GetRawDevice(), m_SwapChain, nullptr);
 		m_SwapChain = VK_NULL_HANDLE;
 	}
 	if (m_Surface)
 	{
-		vkDestroySurfaceKHR(RHIRoot::GetInstance(), m_Surface, nullptr);
+		vkDestroySurfaceKHR(GetGpuRef()->GetInstance()->m_Instance, m_Surface, nullptr);
 		m_Surface = VK_NULL_HANDLE;
 	}
 }

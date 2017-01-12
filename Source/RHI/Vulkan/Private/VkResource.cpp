@@ -17,23 +17,26 @@ Resource::Ptr Resource::Map(uint64 offset, uint64 size)
 
 Resource::~Resource()
 {
-	VKLOG(Info, "Resource-Destroying Resource..");
-	//vkFreeMemory(GetRawDevice(), m_DeviceMem, nullptr);
+	if (!m_DeviceMem)
+		return;
+	VKLOG(Info, "Resource freeing gpu memory. -- 0x%0x, tid:%d", m_DeviceMem, Os::Thread::GetId());
+	vkFreeMemory(GetRawDevice(), m_DeviceMem, nullptr);
+	m_DeviceMem = VK_NULL_HANDLE;
 }
 
 Buffer::Buffer(Device::Ptr pDevice, rhi::ResourceDesc const &desc)
-: Resource(pDevice, desc)
+: TResource<VkBuffer, rhi::IGpuResource>(pDevice, desc)
 {
-	m_Usage = g_ResourceViewFlag[desc.ViewType];
+	m_ResUsageFlags = g_ResourceViewFlag[desc.ViewType];
 	
 	if (desc.CreationFlag & rhi::EGRCF_TransferSrc)
 	{
-		m_Usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		m_ResUsageFlags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	}
 	
 	if (desc.CreationFlag & rhi::EGRCF_TransferDst) 
 	{
-		m_Usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		m_ResUsageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	}
 
 	if (desc.Flag & rhi::EGRAF_HostVisible) 
@@ -53,17 +56,7 @@ Buffer::Buffer(Device::Ptr pDevice, rhi::ResourceDesc const &desc)
 
 Buffer::~Buffer()
 {
-	VKLOG(Info, "Buffer-Destroying Resource..");
-	if (VK_NULL_HANDLE != m_BufferView)
-	{
-		vkDestroyBufferView(GetRawDevice(), m_BufferView, nullptr);
-		m_BufferView = VK_NULL_HANDLE;
-	}
-	if (VK_NULL_HANDLE != m_Buffer)
-	{
-		vkDestroyBuffer(GetRawDevice(), m_Buffer, nullptr);
-		m_Buffer = VK_NULL_HANDLE;
-	}
+	VKLOG(Info, "Buffer Destroying..");
 }
 
 void Buffer::Create(size_t size)
@@ -72,42 +65,27 @@ void Buffer::Create(size_t size)
 	createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	createInfo.pNext = nullptr;
 	createInfo.size = size;
-	createInfo.usage = m_Usage;
+	createInfo.usage = m_ResUsageFlags;
 	createInfo.flags = 0;
 	createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	createInfo.queueFamilyIndexCount = 0;
 	createInfo.pQueueFamilyIndices = nullptr;
-	K3D_VK_VERIFY(vkCreateBuffer(GetRawDevice(), &createInfo, nullptr, &m_Buffer));
-	ResourceManager::Allocation alloc = GetDevice()->GetMemoryManager()->AllocateBuffer(m_Buffer, false, m_MemoryBits);
-	K3D_ASSERT(VK_NULL_HANDLE != alloc.Memory);
 
-	m_DeviceMem = alloc.Memory;
-	m_AllocationOffset = alloc.Offset;
-	m_AllocationSize = alloc.Size;
-	m_Size = size;
+	TResource<VkBuffer, rhi::IGpuResource>::Allocate(createInfo);
 
-	VKLOG(Info, "Buffer reqSize:(%d) allocated:(%d) offset:(%d) address:(0x%0x).",
-		  m_Size, m_AllocationSize, m_AllocationOffset, m_DeviceMem);
-
-	m_BufferInfo.buffer = m_Buffer;
-	m_BufferInfo.offset = 0;
-	m_BufferInfo.range = m_Size;
+	m_ResDescInfo.buffer = m_NativeObj;
+	m_ResDescInfo.offset = 0;
+	m_ResDescInfo.range = m_MemAllocInfo.allocationSize;
 	
-	K3D_VK_VERIFY(vkCmd::BindBufferMemory(GetRawDevice(), m_Buffer, m_DeviceMem, m_AllocationOffset));
+	K3D_VK_VERIFY(vkBindBufferMemory(NativeDevice(), m_NativeObj, m_DeviceMem, 0));
 }
 
-/*Texture::Texture(Device::Ptr pDevice, rhi::TextureDesc const &desc)
-: Resource(pDevice)
-{
-	Create(desc);
-}*/
-
 Texture::Texture(Device::Ptr pDevice, rhi::ResourceDesc const & desc)
-	: Resource(pDevice, desc)
+	: Texture::ThisResourceType(pDevice, desc)
 {
 	if (desc.CreationFlag & rhi::EGRCF_TransferDst)
 	{
-		m_ImageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		m_ResUsageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
 	if (desc.Flag & rhi::EGRAF_HostVisible)
 	{
@@ -139,9 +117,7 @@ Texture::Texture(Device::Ptr pDevice, rhi::ResourceDesc const & desc)
 }
 
 Texture::Texture(VkImage image, VkImageView imageView, VkImageViewCreateInfo info, Device::Ptr pDevice, bool selfOwnShip)
-	: Resource(pDevice)
-	, m_ImageView(imageView)
-	, m_Image(image)
+	: Texture::ThisResourceType(pDevice)
 	, m_ImageViewInfo(info)
 	, m_SelfOwn(selfOwnShip)
 {
@@ -160,27 +136,21 @@ SamplerCRef Texture::GetSampler() const
 
 void Texture::CreateResourceView()
 {
-	m_ImageViewInfo = ImageViewInfo::From(m_ImageInfo, m_Image);
-	K3D_VK_VERIFY(vkCreateImageView(GetRawDevice(), &m_ImageViewInfo, nullptr, &m_ImageView));
+	m_ImageViewInfo = ImageViewInfo::From(m_ImageInfo, m_NativeObj);
+	K3D_VK_VERIFY(vkCreateImageView(NativeDevice(), &m_ImageViewInfo, nullptr, &m_ResView));
 }
 
 void Texture::CreateRenderTexture(TextureDesc const & desc)
 {
 	m_ImageInfo = ImageInfo::FromRHI(desc);
-	K3D_VK_VERIFY(vkCreateImage(GetRawDevice(), &m_ImageInfo, nullptr, &m_Image));
+	m_MemoryBits = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-	ResourceManager::Allocation alloc = GetDevice()->GetMemoryManager()->AllocateImage(m_Image, false, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	K3D_ASSERT(VK_NULL_HANDLE != alloc.Memory);
+	ThisResourceType::Allocate(m_ImageInfo);
 
-	m_DeviceMem = alloc.Memory;
-	m_AllocationOffset = alloc.Offset;
-	m_AllocationSize = alloc.Size;
-	m_Size = alloc.Size;
+	K3D_VK_VERIFY(vkBindImageMemory(NativeDevice(), m_NativeObj, m_DeviceMem, 0));
 
-	K3D_VK_VERIFY(vkBindImageMemory(GetRawDevice(), m_Image, m_DeviceMem, m_AllocationOffset));
-
-	m_ImageViewInfo = ImageViewInfo::From(m_ImageInfo, m_Image);
-	K3D_VK_VERIFY(vkCreateImageView(GetRawDevice(), &m_ImageViewInfo, nullptr, &m_ImageView));
+	m_ImageViewInfo = ImageViewInfo::From(m_ImageInfo, m_NativeObj);
+	K3D_VK_VERIFY(vkCreateImageView(NativeDevice(), &m_ImageViewInfo, nullptr, &m_ResView));
 
 	VkImageSubresource subres;
 	subres.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -189,7 +159,7 @@ void Texture::CreateRenderTexture(TextureDesc const & desc)
 	// query texture memory layout info here
 	// image must have been created with tiling equal to VK_IMAGE_TILING_LINEAR
 	// The aspectMask member of pSubresource must only have a single bit set
-	vkGetImageSubresourceLayout(GetRawDevice(), m_Image, &subres, &m_SubResourceLayout);
+	vkGetImageSubresourceLayout(NativeDevice(), m_NativeObj, &subres, &m_SubResourceLayout);
 }
 
 void Texture::CreateDepthStencilTexture(TextureDesc const & desc)
@@ -199,40 +169,27 @@ void Texture::CreateDepthStencilTexture(TextureDesc const & desc)
 void Texture::CreateSampledTexture(TextureDesc const & desc)
 {
 	m_ImageInfo = ImageInfo::FromRHI(desc);
-	m_ImageInfo.usage = m_ImageUsage | VK_IMAGE_USAGE_SAMPLED_BIT;
-	m_ImageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	m_ImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	m_ImageInfo.usage = m_ResUsageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (m_ResUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT) // texture upload use staging
+	{
+		m_ImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		m_ImageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	}
+	else // directly upload
+	{
+		m_ImageInfo.tiling = VK_IMAGE_TILING_LINEAR;
+		m_ImageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	}
 	
 	m_SubResRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, desc.MipLevels, 0, desc.Layers };
 
-	K3D_VK_VERIFY(vkCreateImage(GetRawDevice(), &m_ImageInfo, nullptr, &m_Image));
+	ThisResourceType::Allocate(m_ImageInfo);
 
-	ResourceManager::Allocation alloc = GetDevice()->GetMemoryManager()->AllocateImage(m_Image, false, m_MemoryBits);
-	K3D_ASSERT(VK_NULL_HANDLE != alloc.Memory);
-
-	m_DeviceMem = alloc.Memory;
-	m_AllocationOffset = alloc.Offset;
-	m_AllocationSize = alloc.Size;
-	m_Size = alloc.Size;
-
-	K3D_VK_VERIFY(vkBindImageMemory(GetRawDevice(), m_Image, m_DeviceMem, m_AllocationOffset));
+	K3D_VK_VERIFY(vkBindImageMemory(NativeDevice(), m_NativeObj, m_DeviceMem, 0));
 }
 
 Texture::~Texture()
 {
-	if (GetRawDevice() == VK_NULL_HANDLE)
-		return;
-	if (VK_NULL_HANDLE != m_ImageView)
-	{
-		vkDestroyImageView(GetRawDevice(), m_ImageView, nullptr);
-		m_ImageView = VK_NULL_HANDLE;
-	}
-	if (VK_NULL_HANDLE != m_Image && m_SelfOwn)
-	{
-		vkDestroyImage(GetRawDevice(), m_Image, nullptr);
-		m_Image = VK_NULL_HANDLE;
-	}
-	VKLOG(Info, "Texture-Destroyed..");
 }
 
 Texture::TextureRef Texture::CreateFromSwapChain(VkImage image, VkImageView view, VkImageViewCreateInfo info, Device::Ptr pDevice)
@@ -240,31 +197,85 @@ Texture::TextureRef Texture::CreateFromSwapChain(VkImage image, VkImageView view
 	return k3d::MakeShared<Texture>(image, view, info, pDevice, false);
 }
 
-ShaderResourceView::ShaderResourceView(rhi::ResourceViewDesc const &desc, rhi::IGpuResource * pGpuResource)
-	: m_Desc(desc), m_Resource(pGpuResource), m_TextureViewInfo{}, m_TextureView(VK_NULL_HANDLE)
+ShaderResourceView::ShaderResourceView(Device::Ptr pDevice, rhi::ResourceViewDesc const &desc, rhi::GpuResourceRef pGpuResource)
+	: ShaderResourceView::ThisObj(pDevice)
+	, m_Desc(desc), m_WeakResource(pGpuResource), m_TextureViewInfo{}
 {
-	auto resourceDesc = m_Resource->GetResourceDesc();
+	auto resourceDesc = m_WeakResource->GetDesc();
+	m_TextureViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	m_TextureViewInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 	switch(resourceDesc.Type)
 	{
+	case rhi::EGT_Texture1D:
+		m_TextureViewInfo.viewType = VK_IMAGE_VIEW_TYPE_1D;
+		break;
 	case rhi::EGT_Texture2D:
-		m_TextureViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		m_TextureViewInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 		m_TextureViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		m_TextureViewInfo.format = g_FormatTable[resourceDesc.TextureDesc.Format];
-		m_TextureViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		m_TextureViewInfo.subresourceRange.baseMipLevel = 0;
-		m_TextureViewInfo.subresourceRange.baseArrayLayer = 0;
-		m_TextureViewInfo.subresourceRange.layerCount = 1;
-		m_TextureViewInfo.subresourceRange.levelCount = resourceDesc.TextureDesc.MipLevels;
-		m_TextureViewInfo.image = (VkImage)m_Resource->GetResourceLocation();
-		K3D_VK_VERIFY(vkCreateImageView(dynamic_cast<Resource*>(m_Resource.Get())->GetRawDevice(), &m_TextureViewInfo, nullptr, &m_TextureView));
+		break;
+	case rhi::EGT_Texture3D:
+		m_TextureViewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
+		break;
+	case rhi::EGT_Texture2DArray:
+		m_TextureViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		break;
 	}
+	m_TextureViewInfo.format = g_FormatTable[resourceDesc.TextureDesc.Format];
+	m_TextureViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	m_TextureViewInfo.subresourceRange.baseMipLevel = 0;
+	m_TextureViewInfo.subresourceRange.baseArrayLayer = 0;
+	m_TextureViewInfo.subresourceRange.layerCount = 1;
+	m_TextureViewInfo.subresourceRange.levelCount = resourceDesc.TextureDesc.MipLevels;
+	m_TextureViewInfo.image = (VkImage)m_WeakResource->GetLocation();
+
+	K3D_VK_VERIFY(vkCreateImageView(NativeDevice(), &m_TextureViewInfo, nullptr, &m_NativeObj));
 }
 
 ShaderResourceView::~ShaderResourceView()
 {
 	// destroy view
+	VKLOG(Info, "ShaderResourceView destroying...");
+	if (m_NativeObj)
+	{
+		vkDestroyImageView(NativeDevice(), m_NativeObj, nullptr);
+		m_NativeObj = VK_NULL_HANDLE;
+	}
+}
+
+Sampler::Sampler(Device::Ptr pDevice, rhi::SamplerState const & samplerDesc)
+	: ThisObj(pDevice)
+	, m_SamplerState(samplerDesc)
+{
+	if (pDevice)
+	{
+		m_SamplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		m_SamplerCreateInfo.magFilter = g_Filters[samplerDesc.Filter.MagFilter];
+		m_SamplerCreateInfo.minFilter = g_Filters[samplerDesc.Filter.MinFilter];
+		m_SamplerCreateInfo.mipmapMode = g_MipMapModes[samplerDesc.Filter.MipMapFilter];
+		m_SamplerCreateInfo.addressModeU = g_AddressModes[samplerDesc.U];
+		m_SamplerCreateInfo.addressModeV = g_AddressModes[samplerDesc.V];
+		m_SamplerCreateInfo.addressModeW = g_AddressModes[samplerDesc.W];
+		m_SamplerCreateInfo.mipLodBias = samplerDesc.MipLODBias;
+		m_SamplerCreateInfo.compareOp = g_ComparisonFunc[samplerDesc.ComparisonFunc];
+		m_SamplerCreateInfo.minLod = samplerDesc.MinLOD;
+		// Max level-of-detail should match mip level count
+		m_SamplerCreateInfo.maxLod = samplerDesc.MaxLOD;
+		// Enable anisotropic filtering
+		m_SamplerCreateInfo.maxAnisotropy = samplerDesc.MaxAnistropy;
+		m_SamplerCreateInfo.anisotropyEnable = VK_TRUE;
+		m_SamplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE; // cannot convert...
+		vkCreateSampler(NativeDevice(), &m_SamplerCreateInfo, nullptr, &m_NativeObj);
+	}
+}
+
+Sampler::~Sampler()
+{
+	VKLOG(Info, "Sampler Destroying %p...", m_NativeObj);
+	vkDestroySampler(NativeDevice(), m_NativeObj, nullptr);
+}
+
+rhi::SamplerState Sampler::GetSamplerDesc() const
+{
+	return m_SamplerState;
 }
 
 template<typename VkObject>
@@ -338,6 +349,8 @@ ResourceManager::PoolManager<VkObjectT>::~PoolManager()
 template<typename VkObjectT>
 void ResourceManager::PoolManager<VkObjectT>::Destroy()
 {
+	if (!GetRawDevice())
+		return;
 	::Os::Mutex::AutoLock lock(&m_Mutex);
 	for (auto& pool : m_Pools) {
 		vkFreeMemory(GetRawDevice(), pool->m_Memory, nullptr);
