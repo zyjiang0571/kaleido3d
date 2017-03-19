@@ -6,6 +6,26 @@ set(UT_DEP_PLUGIN "")
 set(DEVELOPMENT_TEAM "8HY898Y2MS")
 set(CODE_SIGN_IDENTITY "iPhone Developer")
 
+string(TIMESTAMP YEAR "%Y")
+set(COPY_RIGHT "Copyright (C) ${YEAR} Tsin Studio.")
+
+function(generate_win_res TARGET)
+    cmake_parse_arguments(${TARGET}
+        ""
+        "VER;DESC"
+        ""
+        ${ARGN}
+    )
+    file(READ "${Kaleido3D_SOURCE_DIR}/Platform/Windows/lib.rc.in" __TEMPLATE_RC)
+    string(REPLACE "{_VERSION_}" "${${TARGET}_VER}" __TEMPLATE_RC ${__TEMPLATE_RC})
+    string(REPLACE "{DESCRIPTION}" "${${TARGET}_DESC}" __TEMPLATE_RC ${__TEMPLATE_RC})
+    string(REPLACE "{COPYRIGHT}" ${COPY_RIGHT} __TEMPLATE_RC ${__TEMPLATE_RC})
+    string(REPLACE "{PRODUCT}" "${TARGET}" __TEMPLATE_RC ${__TEMPLATE_RC})
+    string(REPLACE "{COMPANY}" "Tsin Studio" __TEMPLATE_RC ${__TEMPLATE_RC})
+    set(${TARGET}_RC "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${TARGET}_WinRes.rc" PARENT_SCOPE)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${TARGET}_WinRes.rc" "${__TEMPLATE_RC}")
+endfunction()
+
 function(link_plugin PLUGIN_NAME) # current plugins: RHI_*, KawaLog, ShaderCompiler
 if(BUILD_SHARED)
 else()
@@ -98,6 +118,9 @@ function(add_plugin PLUGIN_NAME)
     )
     if(BUILD_SHARED)
         add_definitions(-DBUILD_SHARED_LIB -DBUILD_WITH_PLUGIN)
+        if(WIN32)
+            list(APPEND ${PLUGIN_NAME}_SRCS "${Kaleido3D_SOURCE_DIR}/Platform/Windows/lib.rc")
+        endif()
         if(IOS) # use framework
             add_ios_framework(${PLUGIN_NAME} SRCS ${${PLUGIN_NAME}_SRCS} LIBS Core ${${PLUGIN_NAME}_LIBS})
         else()
