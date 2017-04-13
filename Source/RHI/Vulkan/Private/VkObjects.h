@@ -805,6 +805,7 @@ private:
 	InstanceRef								m_Inst;
 	VkPhysicalDevice						m_PhysicalGpu;
 	VkPhysicalDeviceProperties				m_Prop;
+  VkPhysicalDeviceFeatures  m_Features;
 	VkPhysicalDeviceMemoryProperties		m_MemProp;
 	uint32									m_GraphicsQueueIndex = 0;
 	uint32									m_ComputeQueueIndex = 0;

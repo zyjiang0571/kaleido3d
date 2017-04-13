@@ -30,13 +30,15 @@ pause
 exit
 
 :BUILD_BY_CMAKE
+qmake -v
+if "%ERRORLEVEL%"=="0" (set BUILD_EDITOR=ON) else (set BUILD_EDITOR=OFF)
 echo Now Generate Project by CMake (VS 2017)
-cmake -G"Visual Studio 15 2017 Win64" -HSource -BBuild\Win64\Debug -DCMAKE_BUILD_TYPE=Debug
+cmake -G"Visual Studio 15 2017 Win64" -HSource -BBuild\Win64\Debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_WITH_EDITOR=%BUILD_EDITOR%
 if "%ERRORLEVEL%"=="0" (goto BUILD_CMAKE)
 RD /S /Q Build
 
 echo Now Generate Project by CMake (VS 2015)
-cmake -G"Visual Studio 14 2015 Win64" -HSource -BBuild\Win64\Debug -DCMAKE_BUILD_TYPE=Debug
+cmake -G"Visual Studio 14 2015 Win64" -HSource -BBuild\Win64\Debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_WITH_EDITOR=%BUILD_EDITOR%
 if "%ERRORLEVEL%"=="0" (goto BUILD_CMAKE) else (goto NotSupport)
 
 :BUILD_CMAKE

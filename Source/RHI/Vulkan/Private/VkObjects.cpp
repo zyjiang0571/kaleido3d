@@ -344,6 +344,7 @@ Gpu::Gpu(VkPhysicalDevice const& gpu, InstanceRef const& pInst)
 {
 	vkGetPhysicalDeviceProperties(m_PhysicalGpu, &m_Prop);
 	vkGetPhysicalDeviceMemoryProperties(m_PhysicalGpu, &m_MemProp);
+  vkGetPhysicalDeviceFeatures(m_PhysicalGpu, &m_Features);
 	VKLOG(Info, "Gpu: %s", m_Prop.deviceName);
 	QuerySupportQueues();
 }
@@ -570,7 +571,7 @@ VkDevice Gpu::CreateLogicDevice(bool enableValidation)
 		deviceCreateInfo.pNext = NULL;
 		deviceCreateInfo.queueCreateInfoCount = 1;
 		deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
-		deviceCreateInfo.pEnabledFeatures = NULL;
+		deviceCreateInfo.pEnabledFeatures = &m_Features;
 
 		if (enableValidation)
 		{

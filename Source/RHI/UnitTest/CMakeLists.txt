@@ -6,6 +6,7 @@ endif()
 include_directories(
     ${FREETYPE2_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${STEAMSDK_INCLUDE_DIR}
 )
 
 add_unittest(
@@ -29,6 +30,7 @@ add_unittest(
 	Base/TextureObject.h
 	Base/TextureObject.cpp
 )
+#target_link_libraries(RHI-UnitTest-4.TexturedCube ${STEAMSDK_LIBRARY})
 
 add_unittest(
 	RHI-UnitTest-5.ComputeParticles

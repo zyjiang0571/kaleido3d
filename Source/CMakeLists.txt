@@ -20,11 +20,11 @@ include(NDKStlConfig)
 find_package(ThirdParty)
 
 option(BUILD_SHARED "Build runtime library as shared libs" ON)
-option(BUILD_WITH_EDITOR "Build With Editor" ON)
+option(BUILD_WITH_EDITOR "Build With Editor" OFF)
 option(BUILD_WITH_D3D12 "Build With D3D12 RHI" OFF)
 option(BUILD_WITH_V8 "Build With V8 Script Module" OFF)
 option(BUILD_WITH_UNIT_TEST "Build With Unit Test" ON)
-option(ENABLE_SHAREDPTR_TRACK "Enable SharedPtr Track" ON)
+option(ENABLE_SHAREDPTR_TRACK "Enable SharedPtr Track" OFF)
 
 if(IOS OR MACOS)
 	set(LIB_DIR @loader_path/../Frameworks)

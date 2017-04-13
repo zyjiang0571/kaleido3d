@@ -34,10 +34,12 @@ unset(RAPIDJSON_INCLUDE_DIR CACHE)
 unset(GLSLANG_INCLUDE_DIR CACHE)
 unset(SPIRV2CROSS_INCLUDE_DIR CACHE)
 unset(FREETYPE2_INCLUDE_DIR CACHE)
+unset(STEAMSDK_INCLUDE_DIR CACHE)
 
 set(FREETYPE2_LIBRARY freetype)
 set(GLSLANG_LIBRARIES glslang HLSL OGLCompiler OSDependent SPIRV SPVRemapper)
 set(SPIRV2CROSS_LIBRARY spirv-cross-core spirv-cross-msl spirv-cross-glsl)
+set(STEAMSDK_LIBRARY steam_api64)
 
 if(WIN32)
     unset(DXSDK_INCLUDE_DIR CACHE)
@@ -139,6 +141,18 @@ if(WIN32)
 	    PATH_SUFFIXES include
 	    PATHS ${ThirdParty_PREBUILT_DIR}
 	)
+    find_path(STEAMSDK_INCLUDE_DIR
+        steam/steam_api.h
+        PATH_SUFFIES include
+        PATHS ${ThirdParty_PREBUILT_DIR}
+    )
+    message("STEAMSDK = ${STEAMSDK_INCLUDE_DIR}")
+    find_library(STEAMSDK_LIBRARY
+        NAMES steam_api64 steam_api
+        PATH_SUFFIXES lib
+        PATHS
+        ${ThirdParty_PREBUILT_DIR}
+    )
 endif()
 
 mark_as_advanced(VULKANSDK_INCLUDE_DIR)
@@ -167,6 +181,7 @@ find_package_handle_standard_args(ThirdParty DEFAULT_MSG
     GLSLANG_INCLUDE_DIR
     SPIRV2CROSS_INCLUDE_DIR
     FREETYPE2_INCLUDE_DIR
+    STEAMSDK_INCLUDE_DIR
 )
 mark_as_advanced(
     VULKANSDK_INCLUDE_DIR
@@ -174,6 +189,7 @@ mark_as_advanced(
     GLSLANG_INCLUDE_DIR
     SPIRV2CROSS_INCLUDE_DIR
     FREETYPE2_INCLUDE_DIR
+    STEAMSDK_INCLUDE_DIR
 )
 elseif(IOS OR MACOS)
 find_package_handle_standard_args(ThirdParty DEFAULT_MSG

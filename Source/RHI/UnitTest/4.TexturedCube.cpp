@@ -7,6 +7,7 @@
 #include <Renderer/Render.h>
 #include <Math/kMath.hpp>
 #include <Base/TextureObject.h>
+//#include <steam/steam_api.h>
 
 using namespace k3d;
 using namespace render;
@@ -203,6 +204,12 @@ bool TCubeUnitTest::OnInit()
 	bool inited = RHIAppBase::OnInit();
 	if(!inited)
 		return inited;
+//  bool res = SteamAPI_RestartAppIfNecessary(0);
+//  bool init = SteamAPI_Init();
+//  auto controller = SteamController();
+//  controller->Init();
+//  ControllerHandle_t pHandles[STEAM_CONTROLLER_MAX_COUNT];
+//  int nNumActive = SteamController()->GetConnectedControllers(pHandles);
 	KLOG(Info, Test, __K3D_FUNC__);
 	PrepareResource();
 	PreparePipeline();
@@ -315,6 +322,8 @@ void TCubeUnitTest::OnProcess(Message& msg)
 
 void TCubeUnitTest::OnUpdate()
 {
+//  ControllerHandle_t pHandles[STEAM_CONTROLLER_MAX_COUNT];
+//  int nNumActive = SteamController()->GetConnectedControllers(pHandles);
 	m_HostBuffer.projectionMatrix = Perspective(60.0f, (float)m_pViewport->GetWidth() / (float)m_pViewport->GetHeight(), 0.1f, 256.0f);
 	m_HostBuffer.viewMatrix = Translate(Vec3f(0.0f, 0.0f, -4.5f), MakeIdentityMatrix<float>());
 	m_HostBuffer.modelMatrix = MakeIdentityMatrix<float>();

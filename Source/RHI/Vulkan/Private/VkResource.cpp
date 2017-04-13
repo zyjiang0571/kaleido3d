@@ -121,6 +121,7 @@ Texture::Texture(VkImage image, VkImageView imageView, VkImageViewCreateInfo inf
 	, m_ImageViewInfo(info)
 	, m_SelfOwn(selfOwnShip)
 {
+  m_NativeObj = image;
 	m_SubResRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 }
 

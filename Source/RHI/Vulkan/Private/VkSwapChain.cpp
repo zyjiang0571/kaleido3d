@@ -177,7 +177,8 @@ void SwapChain::Destroy()
 	VKLOG(Info, "SwapChain Destroying..");
 	if (m_SwapChain)
 	{
-		vkDestroySwapchainKHR(GetRawDevice(), m_SwapChain, nullptr);
+    VkDevice device = GetRawDevice();
+		vkDestroySwapchainKHR(device, m_SwapChain, nullptr);
 		m_SwapChain = VK_NULL_HANDLE;
 	}
 	if (m_Surface)
