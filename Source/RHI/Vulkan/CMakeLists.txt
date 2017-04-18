@@ -20,17 +20,11 @@ set(RHI_IMPL_SRCS
 	Private/VkObjects.h
 	Private/VkObjects.cpp
 	Private/DynVulkanLoader.h
-	Private/VkDevice.cpp
 	Private/VkEnums.h
 	Private/VkUtils.h
 	Private/VkUtils.cpp
-	Private/VkRenderViewport.cpp
 	Private/VkCommandContext.cpp
 	Private/VkResource.cpp
-	Private/VkPipelineState.cpp
-	Private/VkDescriptor.cpp
-	Private/VkSwapChain.cpp
-	Private/VkRenderPass.cpp
 	Private/VkDebug.cpp
 	Private/VkImpl.cpp
 	Private/VkRHI.cpp

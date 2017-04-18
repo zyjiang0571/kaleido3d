@@ -117,12 +117,12 @@ K3D_COMMON_NS
 		{
 			if (m_pRefCount) 
 			{
-				m_pRefCount->Release();
+				int32 RefCount = m_pRefCount->Release();
 
 #if K3DPLATFORM_OS_WIN && ENABLE_SHAREDPTR_TRACKER
 				String debugStr;
 				debugStr.AppendSprintf("SharedPtr Track (Release) [%s] --- Strong=%d Weak=%d .\n", 
-					typeid(T).name(), m_pRefCount->m_RefCount, m_pRefCount->m_WeakRefCount);
+					typeid(T).name(), m_pRefCount->m_RefCount, RefCount);
 				OutputDebugStringA(debugStr.CStr());
 #endif
 			}

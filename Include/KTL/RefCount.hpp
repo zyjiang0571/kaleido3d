@@ -18,23 +18,31 @@ K3D_COMMON_NS
 
 		int32 UseCount() const K3D_NOEXCEPT { return m_RefCount; }
 
-		void AddRef() K3D_NOEXCEPT
+		int32 AddRef() K3D_NOEXCEPT
 		{
 			__k3d_intrinsics__::AtomicIncrement(&m_RefCount);
 			__k3d_intrinsics__::AtomicIncrement(&m_WeakRefCount);
+      return m_WeakRefCount;
 		}
 
-		void Release() K3D_NOEXCEPT
+    int32 Release() K3D_NOEXCEPT
 		{
 			assert((m_RefCount > 0) && (m_WeakRefCount > 0));
-			if (__k3d_intrinsics__::AtomicDecrement(&m_RefCount) > 0)
-				__k3d_intrinsics__::AtomicDecrement(&m_WeakRefCount);
+      if (__k3d_intrinsics__::AtomicDecrement(&m_RefCount) > 0)
+      {
+        __k3d_intrinsics__::AtomicDecrement(&m_WeakRefCount);
+      }
 			else
 			{
 				FreeValue();
-				if (__k3d_intrinsics__::AtomicDecrement(&m_WeakRefCount) == 0)
-					FreeRefCountVal();
+        if (__k3d_intrinsics__::AtomicDecrement(&m_WeakRefCount) == 0)
+        {
+          int32 LastCount = m_WeakRefCount;
+          FreeRefCountVal();
+          return LastCount;
+        }
 			}
+      return m_WeakRefCount;
 		}
 
 		void AddWeakRef() K3D_NOEXCEPT { __k3d_intrinsics__::AtomicIncrement(&m_WeakRefCount); }

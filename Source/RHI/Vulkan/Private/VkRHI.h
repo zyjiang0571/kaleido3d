@@ -56,17 +56,17 @@ class DescriptorAllocator;
 class DescriptorSetLayout;
 
 class FrameBuffer;
-using SpFramebuffer = std::shared_ptr<FrameBuffer>;
+using SpFramebuffer = SharedPtr<FrameBuffer>;
 
 class RenderPass;
-using SpRenderpass = std::shared_ptr<RenderPass>;
+using SpRenderpass = SharedPtr<RenderPass>;
 using UpRenderpass = std::unique_ptr<RenderPass>;
 
 class Texture;
-using SpTexture = std::shared_ptr<Texture>;
+using SpTexture = SharedPtr<Texture>;
 
 class RenderTarget;
-using SpRenderTarget = std::shared_ptr<RenderTarget>;
+using SpRenderTarget = SharedPtr<RenderTarget>;
 
 class RenderViewport;
 class Sampler;

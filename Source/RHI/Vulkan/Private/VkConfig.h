@@ -8,7 +8,7 @@ K3D_VK_BEGIN
 
 namespace 
 {
-	int g_ValidationLayerCount = 1;
+	int g_ValidationLayerCount = 0;
 	
 	const char *g_ValidationLayerNames[] =
 	{
